@@ -33,6 +33,89 @@ API_CLIPHOT_DOWNLOAD = "https://adidaphat.site/clipphot?action=download&url="
 # add TikTok download API base
 API_TT_DOWNLOAD = "https://adidaphat.site/tiktok?type=download&url="
 
+# --- NEW: Free Fire API commands ---
+API_FF_LIKE = "https://huutri.id.vn/api/freefire/like?uid={}"
+API_FF_INFO = "https://huutri.id.vn/api/freefire/info?uid={}"
+
+def ff_format_info(data):
+    basic = data.get("basicInfo", {})
+    credit = data.get("creditScoreInfo", {})
+    pet = data.get("petInfo", {})
+    social = data.get("socialInfo", {})
+    lines = []
+    lines.append(f"<b>===== THÔNG TIN TÀI KHOẢN FREE FIRE =====</b>")
+    lines.append(f"<b>UID:</b> {basic.get('uid', data.get('uid',''))}")
+    lines.append(f"<b>Tên Nhân Vật:</b> {basic.get('nickname','')}")
+    lines.append(f"<b>Cấp Độ:</b> {basic.get('level','')}")
+    lines.append(f"<b>Kinh Nghiệm:</b> {basic.get('exp','')}")
+    lines.append(f"<b>Huy Hiệu:</b> {basic.get('badgeCnt','')} cái")
+    lines.append(f"<b>Like:</b> {basic.get('liked','')}")
+    lines.append(f"<b>Rank:</b> {basic.get('rank','')} | <b>Điểm Rank:</b> {basic.get('rankingPoints','')}")
+    lines.append(f"<b>Rank CS:</b> {basic.get('csRank','')} | <b>Điểm CS:</b> {basic.get('csRankingPoints','')}")
+    lines.append(f"<b>Phiên Bản:</b> {basic.get('releaseVersion','')}")
+    lines.append(f"<b>Vùng:</b> {basic.get('region','')}")
+    if credit:
+        lines.append(f"<b>===== CREDIT SCORE =====</b>")
+        lines.append(f"<b>Điểm Uy Tín:</b> {credit.get('creditScore','')}")
+        lines.append(f"<b>Tình Trạng:</b> {credit.get('rewardState','')}")
+    if pet:
+        lines.append(f"<b>===== PET =====</b>")
+        lines.append(f"<b>Pet ID:</b> {pet.get('id','')}")
+        lines.append(f"<b>Cấp Độ Pet:</b> {pet.get('level','')}")
+        lines.append(f"<b>EXP Pet:</b> {pet.get('exp','')}")
+    if social:
+        lines.append(f"<b>===== SOCIAL =====</b>")
+        lines.append(f"<b>Ngôn Ngữ:</b> {social.get('language','')}")
+        lines.append(f"<b>Chữ Ký:</b> {social.get('signature','')}")
+    lines.append(f"<b>===== HOÀN TẤT =====</b>")
+    return "\n".join(lines)
+
+async def infoff(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("❌ Dùng: /infoff <uid>")
+        return
+    uid = context.args[0].strip()
+    api_url = API_FF_INFO.format(uid)
+    try:
+        r = requests.get(api_url, timeout=15)
+        data = r.json()
+        if not data or "basicInfo" not in data:
+            await update.message.reply_text("❌ Không lấy được thông tin tài khoản FF.")
+            return
+        msg = ff_format_info(data)
+        await update.message.reply_text(msg, parse_mode="HTML", disable_web_page_preview=True)
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Lỗi khi gọi API: {e}")
+
+async def likeff(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("❌ Dùng: /likeff <uid>")
+        return
+    uid = context.args[0].strip()
+    api_url = API_FF_LIKE.format(uid)
+    try:
+        r = requests.get(api_url, timeout=15)
+        data = r.json()
+        if "likes" in data:
+            before = data["likes"].get("before")
+            after = data["likes"].get("after")
+            added = data["likes"].get("added_by_api")
+            nickname = data.get("nickname", "Không rõ")
+            msg = (
+                f"<b>UID:</b> {uid}\n"
+                f"<b>Tên Nhân Vật:</b> {nickname}\n"
+                f"<b>Like Trước:</b> {before}\n"
+                f"<b>Like Sau:</b> {after}\n"
+                f"<b>Đã Tăng:</b> {added}"
+            )
+            await update.message.reply_text(msg, parse_mode="HTML")
+        else:
+            await update.message.reply_text("❌ Lỗi server hoặc không tăng được like.")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Lỗi khi gọi API: {e}")
+
+# --- END: Free Fire API commands ---
+
 # Logging: chỉ hiển thị WARNING trở lên
 logging.basicConfig(level=logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -44,65 +127,73 @@ BOT_START_TIME = time.time()
 
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-	await update.message.reply_text(
-		"👋\n\n"
-		"Danh sách toàn bộ lệnh của bot (nhóm theo dịch vụ):\n\n"
-		"— Tổng quan —\n"
-		"🔸 /start — Hiện trợ giúp\n"
-		"🔸 /help  — Xem hướng dẫn (giống /start)\n"
-		"🔸 /time  — Thời gian hoạt động Bot\n\n"
-		"— Xvideos —\n"
-		"📥 /taixvideos <url>\n"
-		"🔍 /timxvideos <từ khóa>\n\n"
-		"— ClipHot —\n"
-		"📥 /taicliphot <url>\n"
-		"🔍 /timcliphot <từ khóa>\n\n"
-		"— TikTok —\n"
-		"🔍 /infott <username>\n"
-		"📥 /taivideott <url>\n"
-		"🔎 /trendtt\n"
-		"🔎 /tukhoatt <từ khóa>\n"
-		"👤 /postusertt <username>\n\n"
-		"— GitHub —\n"
-		"🔍 /infogithub <username>\n\n"
-		"— Facebook —\n"
-		"🔍 /infofb <uid>\n"
-		"⏱ /timefb <uid>\n"
-		"🎬 /videofb <url>\n\n"
-		"— YouTube —\n"
-		"🎥 /videoyt <url>\n\n"
-		"— Hình ảnh & Tiện ích —\n"
-		"🖼 /xoanen <url>         → Xóa nền ảnh\n"
-		"🧓 /doantuoi <url>       → Đoán tuổi từ ảnh\n"
-		"☎️ /sdt <số>            → Định giá số điện thoại\n"
-		"🖌 /taoanhai <prompt>    → Tạo ảnh AI từ prompt\n"
-		"🏧 /vcb <stk> <tien> <noidung> <ctk>\n"
-		"🏧 /mb  <stk> <tien> <noidung> <ctk>\n"
-		"🏧 /vtb <stk> <tien> <noidung> <ctk>\n"
-		"📲 /momo <stk> <tien> <noidung>\n\n"
-		"— Quản lý Key & Quyền —\n"
-		"🔐 /taokey <số_lượng> <số_ngày> <số_giờ>   (Admin)\n"
-		"🔐 /listkey                                (Admin)\n"
-		"🔐 /xoakey <key>                            (Admin)\n"
-		"🔐 /key <key>                               (kích hoạt key)\n"
-		"🔐 /user                                    (đếm người dùng key)\n"
-		"🔐 /admin                                   (danh sách admin)\n"
-		"🔐 /clearkeyadmin                           (Admin) xóa id admin khỏi các key\n\n"
-		"— SQLMap (cần key hợp lệ) —\n"
-		"🛠 /sqli <URL>      — Quét SQLi\n"
-		"🛠 /tables <URL> <db_name> — Liệt kê bảng\n"
-		"🛠 /dump <URL> <db_name>   — Dump/hiện dữ liệu (nếu có)\n\n"
-		"Ví dụ nhanh:\n"
-		"• /taixvideos https://...\n"
-		"• /taokey 5 7 0   (tạo 5 key, 7 ngày)\n\n"
-		"Tip: Các kết quả tốt nhất khi dùng trình duyệt Chrome/Firefox/Edge.\n"
-		"Gõ /help để xem lại hướng dẫn này bất cứ lúc nào."
-	)
+    await update.message.reply_text(
+        "👋\n\n"
+        "Danh sách toàn bộ lệnh của bot (dùng nhanh):\n\n"
+        "— Tổng quan —\n"
+        "🔸 /start — Hiện trợ giúp\n"
+        "🔸 /help  — Xem hướng dẫn\n"
+        "🔸 /time  — Thời gian hoạt động Bot\n\n"
+        "— Xvideos —\n"
+        "📥 /taixvideos <url>\n"
+        "🔍 /timxvideos <từ khóa>\n\n"
+        "— ClipHot —\n"
+        "📥 /taicliphot <url>\n"
+        "🔍 /timcliphot <từ khóa>\n\n"
+        "— TikTok —\n"
+        "🔍 /infott <username>\n"
+        "📥 /taivideott <url>\n"
+        "🔎 /trendtt\n"
+        "🔎 /tukhoatt <từ khóa>\n"
+        "👤 /postusertt <username>\n\n"
+        "— GitHub —\n"
+        "🔍 /infogithub <username>\n\n"
+        "— Facebook —\n"
+        "🔍 /infofb <uid>\n"
+        "⏱ /timefb <uid>\n"
+        "🎬 /videofb <url>\n\n"
+        "— YouTube —\n"
+        "🎥 /videoyt <url>\n\n"
+        "— Free Fire —\n"
+        "🆔 /infoff <uid>         → Thông tin tài khoản FF\n"
+        "👍 /likeff <uid>         → Buff like tài khoản FF\n\n"
+        "— Hình ảnh & Tiện ích —\n"
+        "🖼 /xoanen <url>         → Xóa nền ảnh\n"
+        "🧓 /doantuoi <url>       → Đoán tuổi từ ảnh\n"
+        "☎️ /sdt <số>            → Định giá số điện thoại\n"
+        "🖌 /taoanhai <prompt>    → Tạo ảnh AI từ prompt\n"
+        "🏧 /vcb <stk> <tien> <noidung> <ctk>\n"
+        "🏧 /mb  <stk> <tien> <noidung> <ctk>\n"
+        "🏧 /vtb <stk> <tien> <noidung> <ctk>\n"
+        "📲 /momo <stk> <tien> <noidung>\n\n"
+        "— Quản lý Key & Quyền —\n"
+        "🔐 /taokey <số_lượng> <số_ngày> <số_giờ>   (Admin)\n"
+        "🔐 /listkey                                (Admin)\n"
+        "🔐 /xoakey <key>                            (Admin)\n"
+        "🔐 /key <key>                               (kích hoạt key)\n"
+        "🔐 /user                                    (đếm người dùng key)\n"
+        "🔐 /admin                                   (danh sách admin)\n"
+        "🔐 /clearkeyadmin                           (Admin) xóa id admin khỏi các key\n\n"
+        "— SQLMap (cần key hợp lệ) —\n"
+        "🛠 /sqli <URL>      — Quét SQLi\n"
+        "🛠 /tables <URL> <db_name> — Liệt kê bảng\n"
+        "🛠 /dump <URL> <db_name>   — Dump/hiện dữ liệu\n\n"
+        "— Khác —\n"
+        "🔢 /md5 <32-hex>    — Phân tích MD5 tài/xỉu\n\n"
+        "Ví dụ nhanh:\n"
+        "• /taixvideos https://...\n"
+        "• /taokey 5 7 0   (tạo 5 key, 7 ngày)\n"
+        "• /infoff 123456789\n"
+        "• /likeff 123456789\n"
+        "• /md5 0123456789abcdef0123456789abcdef\n\n"
+        "Tip: Các kết quả tốt nhất khi dùng trình duyệt Chrome/Firefox/Edge.\n"
+        "Gõ /help để xem lại hướng dẫn này bất cứ lúc nào."
+    )
 
 
 # /help -> reuse start content
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-	await start(update, context)
+    await start(update, context)
 
 
 # /taixvideos <url>
@@ -1370,6 +1461,10 @@ def main():
     app.add_handler(CommandHandler("momo", momo))
     # đăng ký lệnh /time (giữ lệnh hiện có)
     app.add_handler(CommandHandler("time", time_cmd))
+
+    # NEW: Free Fire commands
+    app.add_handler(CommandHandler("infoff", infoff))
+    app.add_handler(CommandHandler("likeff", likeff))
 
     print("🚀 Bot đang chạy...")
     app.run_polling()
