@@ -6,9 +6,23 @@ from urllib.parse import urlsplit, urlunsplit, unquote, quote_plus
 import unicodedata
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import time  # thêm import time
+
+# --- NEW IMPORTS ---
+import subprocess
+import shlex
+import json
+import secrets
+from datetime import datetime, timedelta
+# --- END NEW IMPORTS ---
 
 # ============== CONFIG ==============
 BOT_TOKEN = "7810405245:AAEvgzgKIunIT57vb-qa7ETHQ3x91XGCSOc"   # 🔑 Thay bằng token từ BotFather
+
+# --- NEW CONFIG ---
+ADMINS = [6644473823,7055636268]
+KEYS_FILE = "keys.json"
+# --- END NEW CONFIG ---
 
 API_DOWNLOAD_BASE = "https://adidaphat.site/xvideos/download?url="
 API_SEARCH_BASE = "https://adidaphat.site/xvideos?q="
@@ -24,64 +38,63 @@ logging.basicConfig(level=logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("telegram").setLevel(logging.WARNING)
 
+# lưu thời điểm bot khởi động
+BOT_START_TIME = time.time()
+
 
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	await update.message.reply_text(
-		"Xin chào 👋\n\n"
-		"Tôi hỗ trợ các lệnh sau (nhóm theo dịch vụ):\n\n"
+		"👋\n\n"
+		"Danh sách toàn bộ lệnh của bot (nhóm theo dịch vụ):\n\n"
 		"— Tổng quan —\n"
 		"🔸 /start — Hiện trợ giúp\n"
-		"🔸 /help  — Xem hướng dẫn (alias của /start)\n\n"
+		"🔸 /help  — Xem hướng dẫn (giống /start)\n"
+		"🔸 /time  — Thời gian hoạt động Bot\n\n"
 		"— Xvideos —\n"
 		"📥 /taixvideos <url>\n"
-		"    → Lấy link tải mp4 từ Xvideos\n"
-		"🔍 /timxvideos <từ khóa>\n"
-		"    → Tìm video trên Xvideos\n\n"
+		"🔍 /timxvideos <từ khóa>\n\n"
 		"— ClipHot —\n"
 		"📥 /taicliphot <url>\n"
-		"    → Lấy link tải mp4 từ ClipHot\n"
-		"🔍 /timcliphot <từ khóa>\n"
-		"    → Tìm video trên ClipHot\n\n"
+		"🔍 /timcliphot <từ khóa>\n\n"
 		"— TikTok —\n"
 		"🔍 /infott <username>\n"
-		"    → Thông tin user TikTok\n"
 		"📥 /taivideott <url>\n"
-		"    → Tải video TikTok (trả link HD / NoWM / WM)\n"
 		"🔎 /trendtt\n"
-		"    → Danh sách trending TikTok\n"
 		"🔎 /tukhoatt <từ khóa>\n"
-		"    → Tìm video TikTok theo từ khóa\n"
-		"👤 /postusertt <username>\n"
-		"    → Lấy bài đăng (video/ảnh) của user TikTok\n\n"
+		"👤 /postusertt <username>\n\n"
 		"— GitHub —\n"
-		"🔍 /infogithub <username>\n"
-		"    → Thông tin user GitHub (login, repos, followers...)\n\n"
+		"🔍 /infogithub <username>\n\n"
 		"— Facebook —\n"
 		"🔍 /infofb <uid>\n"
-		"    → Thông tin tài khoản Facebook (sử dụng API)\n"
 		"⏱ /timefb <uid>\n"
-		"    → Thời gian tạo tài khoản Facebook (ngày & giờ)\n"
-		"🎬 /videofb <url>\n"
-		"    → Tải video Facebook (trả link HD/SD)\n\n"
+		"🎬 /videofb <url>\n\n"
 		"— YouTube —\n"
-		"🎥 /videoyt <url>\n"
-		"    → Tải video YouTube (trả các bản chất lượng/âm thanh)\n\n"
-		"— Hình ảnh & tiện ích —\n"
-		"🖼 /xoanen <url>         → Xóa nền ảnh (removebg API)\n"
+		"🎥 /videoyt <url>\n\n"
+		"— Hình ảnh & Tiện ích —\n"
+		"🖼 /xoanen <url>         → Xóa nền ảnh\n"
 		"🧓 /doantuoi <url>       → Đoán tuổi từ ảnh\n"
 		"☎️ /sdt <số>            → Định giá số điện thoại\n"
 		"🖌 /taoanhai <prompt>    → Tạo ảnh AI từ prompt\n"
-		"🏧 /vcb <stk> <tien> <noidung> <ctk> → QR chuyển khoản Vietcombank\n"
-		"🏧 /mb  <stk> <tien> <noidung> <ctk> → QR chuyển khoản MB\n"
-		"🏧 /vtb <stk> <tien> <noidung> <ctk> → QR chuyển khoản VTB\n"
-		"📲 /momo <stk> <tien> <noidung>      → QR chuyển khoản MoMo\n\n"
+		"🏧 /vcb <stk> <tien> <noidung> <ctk>\n"
+		"🏧 /mb  <stk> <tien> <noidung> <ctk>\n"
+		"🏧 /vtb <stk> <tien> <noidung> <ctk>\n"
+		"📲 /momo <stk> <tien> <noidung>\n\n"
+		"— Quản lý Key & Quyền —\n"
+		"🔐 /taokey <số_lượng> <số_ngày> <số_giờ>   (Admin)\n"
+		"🔐 /listkey                                (Admin)\n"
+		"🔐 /xoakey <key>                            (Admin)\n"
+		"🔐 /key <key>                               (kích hoạt key)\n"
+		"🔐 /user                                    (đếm người dùng key)\n"
+		"🔐 /admin                                   (danh sách admin)\n"
+		"🔐 /clearkeyadmin                           (Admin) xóa id admin khỏi các key\n\n"
+		"— SQLMap (cần key hợp lệ) —\n"
+		"🛠 /sqli <URL>      — Quét SQLi\n"
+		"🛠 /tables <URL> <db_name> — Liệt kê bảng\n"
+		"🛠 /dump <URL> <db_name>   — Dump/hiện dữ liệu (nếu có)\n\n"
 		"Ví dụ nhanh:\n"
-		"• /xoanen https://.../image.jpg\n"
-		"• /doantuoi https://.../face.jpg\n"
-		"• /sdt 0367894789\n"
-		"• /taoanhai \"một con rồng màu xanh trên nền biển\"\n"
-		"• /vcb 0123456789 100000 \"Nội dung\" \"Chủ tài khoản\"\n\n"
+		"• /taixvideos https://...\n"
+		"• /taokey 5 7 0   (tạo 5 key, 7 ngày)\n\n"
 		"Tip: Các kết quả tốt nhất khi dùng trình duyệt Chrome/Firefox/Edge.\n"
 		"Gõ /help để xem lại hướng dẫn này bất cứ lúc nào."
 	)
@@ -392,6 +405,56 @@ def html_escape(s: str) -> str:
 		return ""
 	return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
+
+# --- NEW: MD5/hex utilities and command ---
+def calculate_md5_probabilities(hex_str: str):
+	"""Validate 32-char hex and compute last5 sum, percentages and suggestion."""
+	if not hex_str or len(hex_str) != 32:
+		return None, "❌ Vui lòng cung cấp chuỗi hex 32 ký tự."
+	# ensure it's valid hex
+	try:
+		int(hex_str, 16)
+	except ValueError:
+		return None, "❌ Chuỗi không phải hex hợp lệ."
+	last5 = hex_str[-5:]
+	try:
+		total = sum(int(c, 16) for c in last5)
+	except Exception:
+		return None, "❌ Lỗi khi phân tích 5 ký tự cuối."
+	tai = total
+	xiu = 80 - total
+	tai_p = round(tai / 80 * 100, 2)
+	xiu_p = round(xiu / 80 * 100, 2)
+	recommend = "🎯 Tài" if tai_p > xiu_p else "🎯 Xỉu"
+	return {
+		"md5": hex_str,
+		"last5": last5,
+		"total": total,
+		"tai_percent": tai_p,
+		"xiu_percent": xiu_p,
+		"recommend": recommend
+	}, None
+
+async def md5_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+	"""Usage: /md5 <32-hex-string>"""
+	if not context.args:
+		await update.message.reply_text("❌ Dùng: /md5 <32-hex-string>")
+		return
+	hex_input = context.args[0].strip().lower()
+	res, err = calculate_md5_probabilities(hex_input)
+	if err:
+		await update.message.reply_text(err)
+		return
+	msg = (
+		f"<b>🔍 MD5 phân tích</b>\n"
+		f"🔑 Mã: <code>{html_escape(res['md5'])}</code>\n"
+		f"🧩 5 ký tự cuối: <code>{html_escape(res['last5'])}</code>\n"
+		f"➕ Tổng: <code>{res['total']}</code>\n"
+		f"📊 Xác suất: 🔴 Tài <b>{res['tai_percent']}%</b>  •  🔵 Xỉu <b>{res['xiu_percent']}%</b>\n"
+		f"🎲 Gợi ý: {res['recommend']}\n"
+	)
+	await update.message.reply_text(msg, parse_mode="HTML", disable_web_page_preview=True)
+# --- END NEW: MD5/hex utilities and command ---
 
 # /infott <username>
 async def infott(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -828,9 +891,6 @@ async def videoyt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		await update.message.reply_text(f"⚠️ Lỗi khi gọi API: {e}")
 
 
-# add quote_plus import
-from urllib.parse import urlsplit, urlunsplit, unquote, quote_plus
-
 # helper: fetch API that may return JSON with 'url' or an image binary
 def _fetch_image_or_json(api_url: str, timeout=30):
 	r = requests.get(api_url, timeout=timeout)
@@ -997,41 +1057,322 @@ async def momo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	api_url = f"https://adidaphat.site/momo?stk={quote_plus(stk)}&tien={quote_plus(tien)}&noidung={quote_plus(noidung)}&apikey=apikeysumi"
 	await _call_qr_and_send(api_url, update)
 
+# /time - hiện thời gian hoạt động bot
+async def time_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    now = time.time()
+    uptime = int(now - BOT_START_TIME)
+    hours = uptime // 3600
+    minutes = (uptime % 3600) // 60
+    seconds = uptime % 60
+    msg = f"⏱ Bot đã hoạt động: {hours} giờ {minutes} phút {seconds} giây."
+    await update.message.reply_text(msg)
+
+# --- NEW: Key management helpers ---
+def load_keys():
+    try:
+        with open(KEYS_FILE, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+def save_keys(keys):
+    with open(KEYS_FILE, "w") as f:
+        json.dump(keys, f, indent=4)
+
+def generate_key():
+    return secrets.token_hex(8).upper()
+
+def check_user_access(user_id: int) -> bool:
+    keys_data = load_keys()
+    now = datetime.now()
+    for v in keys_data.values():
+        if str(user_id) in v.get("users", []):
+            try:
+                expire_time = datetime.strptime(v.get("expire","1970-01-01 00:00:00"), "%Y-%m-%d %H:%M:%S")
+                if now <= expire_time:
+                    return True
+            except Exception:
+                continue
+    return False
+
+# Admin-only: remove admin id from all keys (useful to "xoá phần key với id admin")
+async def clearkeyadmin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("❌ Bạn không có quyền.")
+        return
+    admin_id = str(update.effective_user.id)
+    keys_data = load_keys()
+    removed = []
+    for k, v in keys_data.items():
+        if admin_id in v.get("users", []):
+            v["users"] = [u for u in v.get("users", []) if u != admin_id]
+            removed.append(k)
+    save_keys(keys_data)
+    if removed:
+        await update.message.reply_text(f"✅ Đã xóa admin id khỏi các key: {', '.join(removed)}")
+    else:
+        await update.message.reply_text("⚠️ Không tìm thấy key nào chứa admin id.")
+
+# Commands: taokey, listkey, xoakey, key, user
+async def create_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("❌ Bạn không có quyền tạo key.")
+        return
+    if len(context.args) < 3:
+        await update.message.reply_text("⚠️ Dùng: /taokey <số_lượng> <số_ngày> <số_giờ>")
+        return
+    try:
+        count = int(context.args[0])
+        days = int(context.args[1])
+        hours = int(context.args[2])
+    except ValueError:
+        await update.message.reply_text("⚠️ Tham số phải là số nguyên.")
+        return
+    keys_data = load_keys()
+    expire_time = (datetime.now() + timedelta(days=days, hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
+    new_keys = []
+    for _ in range(count):
+        key = generate_key()
+        keys_data[key] = {"expire": expire_time, "users": []}
+        new_keys.append(key)
+    save_keys(keys_data)
+    await update.message.reply_text(f"✅ Tạo {count} key thành công:\n" + "\n".join(new_keys))
+
+async def list_keys(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("❌ Bạn không có quyền.")
+        return
+    keys_data = load_keys()
+    if not keys_data:
+        await update.message.reply_text("⚠️ Chưa có key nào.")
+        return
+    text = "🔑 Danh sách key:\n"
+    for k, v in keys_data.items():
+        text += f"{k} | Hết hạn: {v.get('expire')} | Người dùng: {len(v.get('users',[]))}\n"
+    await update.message.reply_text(text)
+
+async def delete_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        await update.message.reply_text("❌ Bạn không có quyền.")
+        return
+    if not context.args:
+        await update.message.reply_text("⚠️ Dùng: /xoakey <key>")
+        return
+    key = context.args[0]
+    keys_data = load_keys()
+    if key in keys_data:
+        del keys_data[key]
+        save_keys(keys_data)
+        await update.message.reply_text(f"✅ Đã xóa key `{key}`", parse_mode="Markdown")
+    else:
+        await update.message.reply_text("⚠️ Key không tồn tại.")
+
+async def activate_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("⚠️ Dùng: /key <key>")
+        return
+    key = context.args[0]
+    keys_data = load_keys()
+    user_id = str(update.effective_user.id)
+    if key not in keys_data:
+        await update.message.reply_text("❌ Key không tồn tại.")
+        return
+    try:
+        expire_time = datetime.strptime(keys_data[key]["expire"], "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        await update.message.reply_text("⚠️ Định dạng thời hạn key không hợp lệ.")
+        return
+    if datetime.now() > expire_time:
+        await update.message.reply_text("⚠️ Key đã hết hạn.")
+        return
+    if user_id not in keys_data[key].get("users", []):
+        keys_data[key].setdefault("users", []).append(user_id)
+        save_keys(keys_data)
+    await update.message.reply_text(f"✅ Key `{key}` đã kích hoạt thành công!", parse_mode="Markdown")
+
+async def count_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keys_data = load_keys()
+    users = set()
+    for v in keys_data.values():
+        users.update(v.get("users", []))
+    await update.message.reply_text(f"👥 Tổng số người dùng bot: {len(users)}")
+
+async def show_admins(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = "👑 Admin bot:\n" + "\n".join([f"- {admin_id}" for admin_id in ADMINS])
+    await update.message.reply_text(text)
+# --- END Key management helpers ---
+
+# --- NEW: sqlmap helpers ---
+def clean_sqlmap_output(output: str) -> str:
+    lines = output.splitlines()
+    filtered = [line for line in lines if not re.search(r"\[INFO\] current status:", line)]
+    return "\n".join(filtered)
+
+def parse_sqlmap_output(output: str) -> str:
+    explanation = ""
+    dbms_match = re.search(r"back-end DBMS: (.+)", output)
+    if dbms_match:
+        explanation += f"• *Hệ quản trị CSDL:* `{dbms_match.group(1).strip()}`\n"
+
+    banner_match = re.search(r"banner: '(.+)'", output)
+    if banner_match:
+        explanation += f"• *Phiên bản DBMS:* `{banner_match.group(1).strip()}`\n"
+
+    tech_match = re.search(r"web application technology: (.+)", output)
+    if tech_match:
+        explanation += f"• *Công nghệ Website:* `{tech_match.group(1).strip()}`\n"
+
+    db_list_match = re.search(r"available databases \[.+\]:\s*\n(.+?)(?=\n\n|\Z)", output, re.DOTALL)
+    if db_list_match:
+        databases = [db.replace('[*] ', '').strip() for db in db_list_match.group(1).split('\n') if db.strip()]
+        explanation += f"• *Database khả dụng:* `{', '.join(databases)}`\n"
+
+    if "Type: boolean-based blind" in output:
+        explanation += "• *Lỗ hổng:* Boolean-based blind\n"
+    if "Type: error-based" in output:
+        explanation += "• *Lỗ hổng:* Error-based\n"
+    if "Type: time-based blind" in output:
+        explanation += "• *Lỗ hổng:* Time-based blind\n"
+
+    if not explanation:
+        return "Không tìm thấy thông tin chi tiết."
+    return explanation
+
+async def sqli_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not check_user_access(update.effective_user.id):
+        await update.message.reply_text("❌ Bạn chưa kích hoạt key.")
+        return
+    if not context.args:
+        await update.message.reply_text("⚠️ Dùng: /sqli <URL>")
+        return
+    url = context.args[0]
+    await update.message.reply_text(f"🔍 Đang quét SQLi: `{url}`", parse_mode='Markdown')
+    try:
+        command = shlex.split(f'sqlmap -u "{url}" --batch --random-agent --banner --dbs --disable-coloring')
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        stdout, stderr = process.communicate(timeout=600)
+        stdout = clean_sqlmap_output(stdout)
+        if stdout.strip():
+            explanation = parse_sqlmap_output(stdout)
+            await update.message.reply_markdown(f"**Kết quả phân tích:**\n{explanation}")
+        elif stderr.strip():
+            await update.message.reply_text(f"Lỗi SQLmap:\n```\n{stderr}\n```", parse_mode='Markdown')
+        else:
+            await update.message.reply_text("Không tìm thấy lỗ hổng.")
+    except FileNotFoundError:
+        await update.message.reply_text("❌ Không tìm thấy lệnh sqlmap.")
+    except subprocess.TimeoutExpired:
+        process.kill()
+        await update.message.reply_text("⏱ Hết thời gian quét (10 phút).")
+
+async def sqli_dump(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not check_user_access(update.effective_user.id):
+        await update.message.reply_text("❌ Bạn chưa kích hoạt key.")
+        return
+    if len(context.args) < 2:
+        await update.message.reply_text("⚠️ Dùng: /dump <URL> <db_name>")
+        return
+    url = context.args[0]
+    db_name = context.args[1]
+    await update.message.reply_text(f"📂 Đang liệt kê bảng trong DB `{db_name}`...", parse_mode='Markdown')
+    try:
+        command = shlex.split(f'sqlmap -u "{url}" -D "{db_name}" --tables --batch --random-agent --disable-coloring')
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        stdout, stderr = process.communicate(timeout=600)
+        stdout = clean_sqlmap_output(stdout)
+        if stderr.strip():
+            await update.message.reply_text(f"Lỗi SQLmap:\n```\n{stderr}\n```", parse_mode='Markdown')
+            return
+        if not stdout.strip():
+            await update.message.reply_text("⚠️ Không có dữ liệu trả về.")
+            return
+        await update.message.reply_text(f"```\n{stdout[:3800]}\n```", parse_mode='Markdown')
+    except subprocess.TimeoutExpired:
+        process.kill()
+        await update.message.reply_text("⏱ Hết thời gian dump (10 phút).")
+
+async def sqli_tables(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not check_user_access(update.effective_user.id):
+        await update.message.reply_text("❌ Bạn chưa kích hoạt key.")
+        return
+    if len(context.args) < 2:
+        await update.message.reply_text("⚠️ Dùng: /tables <URL> <db_name>")
+        return
+    url = context.args[0]
+    db_name = context.args[1]
+    await update.message.reply_text(f"📋 Đang liệt kê bảng của DB `{db_name}`...", parse_mode='Markdown')
+    try:
+        command = shlex.split(f'sqlmap -u "{url}" -D "{db_name}" --tables --batch --random-agent --disable-coloring')
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        stdout, stderr = process.communicate(timeout=600)
+        stdout = clean_sqlmap_output(stdout)
+        if stderr.strip():
+            await update.message.reply_text(f"Lỗi SQLmap:\n```\n{stderr}\n```", parse_mode='Markdown')
+            return
+        if stdout.strip():
+            await update.message.reply_text(f"```\n{stdout[:3800]}\n```", parse_mode='Markdown')
+        else:
+            await update.message.reply_text("⚠️ Không tìm thấy bảng.")
+    except subprocess.TimeoutExpired:
+        process.kill()
+        await update.message.reply_text("⏱ Hết thời gian liệt kê bảng.")
+# --- END sqlmap helpers ---
+
 # ============== MAIN ==============
 def main():
-	app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-	app.add_handler(CommandHandler("start", start))
-	app.add_handler(CommandHandler("help", help_cmd))
-	app.add_handler(CommandHandler("taixvideos", taixvideos))
-	app.add_handler(CommandHandler("timxvideos", timxvideos))
-	app.add_handler(CommandHandler("taicliphot", taicliphot))
-	app.add_handler(CommandHandler("timcliphot", timcliphot))
-	app.add_handler(CommandHandler("infott", infott))
-	app.add_handler(CommandHandler("taivideott", taivideott))
-	# register new TikTok helpers
-	app.add_handler(CommandHandler("trendtt", trendtt))
-	app.add_handler(CommandHandler("tukhoatt", tukhoatt))
-	app.add_handler(CommandHandler("postusertt", postusertt))
-	# register new GitHub info command
-	app.add_handler(CommandHandler("infogithub", infogithub))
-	# register new Facebook info command
-	app.add_handler(CommandHandler("infofb", infofb))
-	app.add_handler(CommandHandler("timefb", timefb))  # added timefb
-	app.add_handler(CommandHandler("videofb", videofb))  # added videofb
-	app.add_handler(CommandHandler("videoyt", videoyt))  # added videoyt
-	# register new commands
-	app.add_handler(CommandHandler("xoanen", xoanen))
-	app.add_handler(CommandHandler("doantuoi", doantuoi))
-	app.add_handler(CommandHandler("sdt", sdt))
-	app.add_handler(CommandHandler("taoanhai", taoanhai))
-	app.add_handler(CommandHandler("vcb", vcb))
-	app.add_handler(CommandHandler("mb", mb))
-	app.add_handler(CommandHandler("vtb", vtb))
-	app.add_handler(CommandHandler("momo", momo))
+    # ...existing handlers...
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_cmd))
+    # register md5 command
+    app.add_handler(CommandHandler("md5", md5_cmd))
+    # ...existing registrations...
+    app.add_handler(CommandHandler("taokey", create_key))
+    app.add_handler(CommandHandler("listkey", list_keys))
+    app.add_handler(CommandHandler("xoakey", delete_key))
+    app.add_handler(CommandHandler("key", activate_key))
+    app.add_handler(CommandHandler("user", count_users))
+    app.add_handler(CommandHandler("admin", show_admins))
+    app.add_handler(CommandHandler("clearkeyadmin", clearkeyadmin))  # admin-only: remove admin id from keys
 
-	print("🚀 Bot đang chạy...")
-	app.run_polling()
+    # SQLMap commands
+    app.add_handler(CommandHandler("sqli", sqli_check))
+    app.add_handler(CommandHandler("dump", sqli_dump))
+    app.add_handler(CommandHandler("tables", sqli_tables))
+
+    # ...existing command registrations...
+    app.add_handler(CommandHandler("taixvideos", taixvideos))
+    app.add_handler(CommandHandler("timxvideos", timxvideos))
+    app.add_handler(CommandHandler("taicliphot", taicliphot))
+    app.add_handler(CommandHandler("timcliphot", timcliphot))
+    app.add_handler(CommandHandler("infott", infott))
+    app.add_handler(CommandHandler("taivideott", taivideott))
+    # register new TikTok helpers
+    app.add_handler(CommandHandler("trendtt", trendtt))
+    app.add_handler(CommandHandler("tukhoatt", tukhoatt))
+    app.add_handler(CommandHandler("postusertt", postusertt))
+    # register new GitHub info command
+    app.add_handler(CommandHandler("infogithub", infogithub))
+    # register new Facebook info command
+    app.add_handler(CommandHandler("infofb", infofb))
+    app.add_handler(CommandHandler("timefb", timefb))  # added timefb
+    app.add_handler(CommandHandler("videofb", videofb))  # added videofb
+    app.add_handler(CommandHandler("videoyt", videoyt))  # added videoyt
+    # register new commands
+    app.add_handler(CommandHandler("xoanen", xoanen))
+    app.add_handler(CommandHandler("doantuoi", doantuoi))
+    app.add_handler(CommandHandler("sdt", sdt))
+    app.add_handler(CommandHandler("taoanhai", taoanhai))
+    app.add_handler(CommandHandler("vcb", vcb))
+    app.add_handler(CommandHandler("mb", mb))
+    app.add_handler(CommandHandler("vtb", vtb))
+    app.add_handler(CommandHandler("momo", momo))
+    # đăng ký lệnh /time (giữ lệnh hiện có)
+    app.add_handler(CommandHandler("time", time_cmd))
+
+    print("🚀 Bot đang chạy...")
+    app.run_polling()
 
 
 if __name__ == "__main__":
